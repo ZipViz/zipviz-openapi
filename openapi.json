@@ -1,0 +1,249 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ZipViz Registry API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.zipviz.ai"
+    }
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "summary": "Registry health",
+        "responses": {
+          "200": {
+            "description": "Healthy"
+          }
+        }
+      }
+    },
+    "/v1/agent/{domain}": {
+      "get": {
+        "summary": "Look up a registered agent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registered agent row, plus the additive proven_by provenance list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "proven_by": {
+                      "type": "array",
+                      "description": "Provenance of the canonical .viz name: what has been proven for it and when. Empty when nothing is recorded. Ordered by verified_at then id. A stale entry is shown, never hidden, and never changes \"verified\". A revoked entry is never reported.",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "type",
+                          "subject",
+                          "status",
+                          "verified_at"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "operator",
+                              "invite",
+                              "namespace",
+                              "ans",
+                              "dns",
+                              "nostr_link",
+                              "handshake"
+                            ]
+                          },
+                          "subject": {
+                            "type": "string",
+                            "description": "What is proven, normalised to lower case with no trailing dot: the outside name for an external type, and the literal \"operator\" or \"invite\" for an internal registration marker. The issuing .viz name behind an invite is never reported."
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "stale",
+                              "revoked"
+                            ]
+                          },
+                          "verified_at": {
+                            "type": "integer",
+                            "description": "Epoch milliseconds, as elsewhere in the registry."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      }
+    },
+    "/v1/agent/{domain}/card": {
+      "get": {
+        "summary": "Read the public agent card",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Legacy card, optionally with the exact top-level agent_conversations declaration, plus the additive proven_by provenance list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "proven_by": {
+                      "type": "array",
+                      "description": "Provenance of the canonical .viz name: what has been proven for it and when. Empty when nothing is recorded. Ordered by verified_at then id. A stale entry is shown, never hidden, and never changes \"verified\". A revoked entry is never reported.",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "type",
+                          "subject",
+                          "status",
+                          "verified_at"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "operator",
+                              "invite",
+                              "namespace",
+                              "ans",
+                              "dns",
+                              "nostr_link",
+                              "handshake"
+                            ]
+                          },
+                          "subject": {
+                            "type": "string",
+                            "description": "What is proven, normalised to lower case with no trailing dot: the outside name for an external type, and the literal \"operator\" or \"invite\" for an internal registration marker. The issuing .viz name behind an invite is never reported."
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "stale",
+                              "revoked"
+                            ]
+                          },
+                          "verified_at": {
+                            "type": "integer",
+                            "description": "Epoch milliseconds, as elsewhere in the registry."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      }
+    },
+    "/v1/verify": {
+      "post": {
+        "summary": "Verify an agent signature",
+        "description": "Suspension overrides authority: 403 E_IDENTITY_SUSPENDED with verified:false. A stale/revoked external proof alone does not change the signature verdict. proven_by is additive on both the success and the signature-mismatch result.",
+        "responses": {
+          "200": {
+            "description": "Verification result, plus the additive proven_by provenance list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "proven_by": {
+                      "type": "array",
+                      "description": "Provenance of the canonical .viz name: what has been proven for it and when. Empty when nothing is recorded. Ordered by verified_at then id. A stale entry is shown, never hidden, and never changes \"verified\". A revoked entry is never reported.",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "type",
+                          "subject",
+                          "status",
+                          "verified_at"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "operator",
+                              "invite",
+                              "namespace",
+                              "ans",
+                              "dns",
+                              "nostr_link",
+                              "handshake"
+                            ]
+                          },
+                          "subject": {
+                            "type": "string",
+                            "description": "What is proven, normalised to lower case with no trailing dot: the outside name for an external type, and the literal \"operator\" or \"invite\" for an internal registration marker. The issuing .viz name behind an invite is never reported."
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "stale",
+                              "revoked"
+                            ]
+                          },
+                          "verified_at": {
+                            "type": "integer",
+                            "description": "Epoch milliseconds, as elsewhere in the registry."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Identity suspended: verified:false, blue_tick:false, reputation:null."
+          },
+          "413": {
+            "description": "Request body exceeds 4 MiB (16 KiB when it names a scheme): verified:false, E_VERIFY_TOO_LARGE."
+          },
+          "429": {
+            "description": "Public-surface rate limit."
+          }
+        }
+      }
+    }
+  }
+}
