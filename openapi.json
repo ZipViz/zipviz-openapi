@@ -175,58 +175,195 @@
     "/v1/verify": {
       "post": {
         "summary": "Verify an agent signature",
-        "description": "Suspension overrides authority: 403 E_IDENTITY_SUSPENDED with verified:false. A stale/revoked external proof alone does not change the signature verdict. proven_by is additive on both the success and the signature-mismatch result.",
+        "description": "Suspension overrides authority: 403 E_IDENTITY_SUSPENDED with verified:false. A stale/revoked external proof alone does not change the signature verdict. proven_by is additive on both the success and the signature-mismatch result. Request: JSON with from (the agent's .viz name), message, timestamp (ISO-8601, within ±5 minutes of the server clock) and signature. Sign the UTF-8 bytes of JSON.stringify({v: 1, from, message, timestamp}), keys in exactly that order, with the agent's registered Ed25519 key, and send the 64-byte signature base64-encoded. A signature is valid only when the response has verified === true. A signature mismatch also answers HTTP 200, with verified: false and code E_SIG_MISMATCH, so neither the HTTP status nor proven_by alone means the signature verified.",
         "responses": {
           "200": {
-            "description": "Verification result, plus the additive proven_by provenance list.",
+            "description": "Verification result. The signature is valid only when verified === true; a mismatch is also HTTP 200, with verified: false.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "title": "Signature verified",
+                      "type": "object",
+                      "required": [
+                        "verified",
+                        "identity",
+                        "signing_version",
+                        "freshness_checked",
+                        "reputation",
+                        "blue_tick",
+                        "proven_by"
+                      ],
+                      "properties": {
+                        "verified": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "identity": {
+                          "type": "string",
+                          "description": "The verified agent's .viz name (the request's from)."
+                        },
+                        "signing_version": {
+                          "type": "integer",
+                          "description": "The signing protocol that verified: 1 for the canonical v1 payload."
+                        },
+                        "freshness_checked": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "reputation": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "description": "Reputation summary when available, otherwise null."
+                        },
+                        "blue_tick": {
+                          "type": [
+                            "boolean",
+                            "null"
+                          ],
+                          "description": "Null when unavailable."
+                        },
+                        "proven_by": {
+                          "type": "array",
+                          "description": "Provenance of the canonical .viz name: what has been proven for it and when. Empty when nothing is recorded. Ordered by verified_at then id. A stale entry is shown, never hidden, and never changes \"verified\". A revoked entry is never reported.",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "type",
+                              "subject",
+                              "status",
+                              "verified_at"
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "operator",
+                                  "invite",
+                                  "namespace",
+                                  "ans",
+                                  "dns",
+                                  "nostr_link",
+                                  "handshake"
+                                ]
+                              },
+                              "subject": {
+                                "type": "string",
+                                "description": "What is proven, normalised to lower case with no trailing dot: the outside name for an external type, and the literal \"operator\" or \"invite\" for an internal registration marker. The issuing .viz name behind an invite is never reported."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "active",
+                                  "stale",
+                                  "revoked"
+                                ]
+                              },
+                              "verified_at": {
+                                "type": "integer",
+                                "description": "Epoch milliseconds, as elsewhere in the registry."
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "title": "Signature mismatch",
+                      "type": "object",
+                      "required": [
+                        "verified",
+                        "error",
+                        "code",
+                        "proven_by"
+                      ],
+                      "properties": {
+                        "verified": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "error": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string",
+                          "const": "E_SIG_MISMATCH"
+                        },
+                        "proven_by": {
+                          "type": "array",
+                          "description": "Provenance of the canonical .viz name: what has been proven for it and when. Empty when nothing is recorded. Ordered by verified_at then id. A stale entry is shown, never hidden, and never changes \"verified\". A revoked entry is never reported.",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "type",
+                              "subject",
+                              "status",
+                              "verified_at"
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "operator",
+                                  "invite",
+                                  "namespace",
+                                  "ans",
+                                  "dns",
+                                  "nostr_link",
+                                  "handshake"
+                                ]
+                              },
+                              "subject": {
+                                "type": "string",
+                                "description": "What is proven, normalised to lower case with no trailing dot: the outside name for an external type, and the literal \"operator\" or \"invite\" for an internal registration marker. The issuing .viz name behind an invite is never reported."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "active",
+                                  "stale",
+                                  "revoked"
+                                ]
+                              },
+                              "verified_at": {
+                                "type": "integer",
+                                "description": "Epoch milliseconds, as elsewhere in the registry."
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request: verified: false with code E_MISSING_FIELDS, E_TIMESTAMP_FORMAT, E_STALE or E_SIG_FORMAT.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
                   "properties": {
-                    "proven_by": {
-                      "type": "array",
-                      "description": "Provenance of the canonical .viz name: what has been proven for it and when. Empty when nothing is recorded. Ordered by verified_at then id. A stale entry is shown, never hidden, and never changes \"verified\". A revoked entry is never reported.",
-                      "items": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": [
-                          "type",
-                          "subject",
-                          "status",
-                          "verified_at"
-                        ],
-                        "properties": {
-                          "type": {
-                            "type": "string",
-                            "enum": [
-                              "operator",
-                              "invite",
-                              "namespace",
-                              "ans",
-                              "dns",
-                              "nostr_link",
-                              "handshake"
-                            ]
-                          },
-                          "subject": {
-                            "type": "string",
-                            "description": "What is proven, normalised to lower case with no trailing dot: the outside name for an external type, and the literal \"operator\" or \"invite\" for an internal registration marker. The issuing .viz name behind an invite is never reported."
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "active",
-                              "stale",
-                              "revoked"
-                            ]
-                          },
-                          "verified_at": {
-                            "type": "integer",
-                            "description": "Epoch milliseconds, as elsewhere in the registry."
-                          }
-                        }
-                      }
+                    "verified": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
                     }
                   }
                 }
@@ -236,11 +373,97 @@
           "403": {
             "description": "Identity suspended: verified:false, blue_tick:false, reputation:null."
           },
+          "404": {
+            "description": "Agent not found: verified: false, E_AGENT_NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "verified": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "413": {
             "description": "Request body exceeds 4 MiB (16 KiB when it names a scheme): verified:false, E_VERIFY_TOO_LARGE."
           },
           "429": {
             "description": "Public-surface rate limit."
+          },
+          "500": {
+            "description": "Verification could not complete: E_STORED_KEY or E_VERIFY (verified: false), or E_PROOFS_DB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "verified": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "from",
+                  "message",
+                  "timestamp",
+                  "signature"
+                ],
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "description": "The signing agent's .viz name."
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO-8601, within ±5 minutes of the server clock."
+                  },
+                  "signature": {
+                    "type": "string",
+                    "description": "Base64 of the 64-byte Ed25519 signature over the canonical v1 payload."
+                  }
+                }
+              }
+            }
           }
         }
       }
