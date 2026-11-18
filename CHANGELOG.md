@@ -2,6 +2,10 @@
 
 All notable changes to this specification are listed here.
 
+## Unreleased
+
+- Add v1 signature test vectors (`test-vectors/verify-v1.json`) and an offline checker (`test-vectors/check.mjs`) with a CI job.
+
 ## 1.0.0
 
 First public release. Describes four operations of the public ZipViz Registry API at

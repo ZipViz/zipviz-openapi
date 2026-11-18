@@ -53,6 +53,33 @@ curl -s https://api.zipviz.ai/v1/verify \
 
 The [CLI](https://github.com/ZipViz/zipviz-cli) and the [MCP server](https://github.com/ZipViz/zipviz-mcp) build and sign this payload for you.
 
+## Signature test vectors
+
+[`test-vectors/verify-v1.json`](test-vectors/verify-v1.json) holds 8 test cases for the v1 signing rule above, so you can check your own signing and verifying code offline. Each case records the request body exactly as it is sent to `POST /v1/verify`, the public key (hex), the verifier's clock (`now`), the signed string (what a verifier rebuilds from the request), and the expected result.
+
+| Case | Expected |
+|---|---|
+| `valid` | valid |
+| `message_tampered` | invalid, `E_SIG_MISMATCH` |
+| `from_tampered` | invalid, `E_SIG_MISMATCH` |
+| `signature_from_different_key` | invalid, `E_SIG_MISMATCH` |
+| `keys_in_wrong_order` (signed over `{v, message, from, timestamp}`) | invalid, `E_SIG_MISMATCH` |
+| `timestamp_6_minutes_old` | invalid, `E_STALE` |
+| `timestamp_6_minutes_future` | invalid, `E_STALE` |
+| `non_ascii_message` (accents, CJK, emoji) | valid |
+
+The reasons are the codes in `openapi.json`. Over the API, a signature mismatch is HTTP 200 with `verified: false`, and a timestamp outside the window is HTTP 400. The vectors take the registered key for `from` as given (`public_key`), so a `from` that is not registered, which the API answers with `E_AGENT_NOT_FOUND`, is not covered. In `from_tampered`, the changed name is assumed to resolve to the same key. A case that carries `signature_made_over` shows the exact string its signature was made over when that differs from the signed string.
+
+Run the check with Node 22 or later (the CI job uses Node 22). It uses only Node built-ins:
+
+```sh
+node test-vectors/check.mjs
+```
+
+It rebuilds the signed bytes for every case, verifies each signature against the expected result, and checks that the secret key reproduces every signature byte for byte (Ed25519 signatures are deterministic). It exits with a non-zero status on any mismatch.
+
+**The keys are TEST ONLY.** The vectors use the public Ed25519 test keys from RFC 8032 section 7.1: TEST 1 signs and verifies, and TEST 2 makes the signature in `signature_from_different_key`. Their secret keys are published in the RFC and in the vector file. Never register them or use them for anything real. All names are under `example.test.viz`.
+
 ## Start here
 
 - [zipviz-cli](https://github.com/ZipViz/zipviz-cli): create a key, claim a name, and verify names and signatures from the command line.
