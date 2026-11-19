@@ -1,0 +1,17 @@
+title = "zipviz-openapi gitleaks config"
+
+[extend]
+useDefault = true
+
+# The RFC 8032 section 7.1 TEST 1 and TEST 2 secret keys are published in the RFC.
+# They are test-only keys used by the signature test vectors. Allow exactly these two
+# values, and only in the two test-vector files.
+[[allowlists]]
+description = "RFC 8032 section 7.1 TEST 1 and TEST 2 secret keys (public, test-only)"
+condition = "AND"
+paths = ['''^test-vectors/(check\.mjs|verify-v1\.json)$''']
+regexTarget = "secret"
+regexes = [
+  '''^9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60$''',
+  '''^4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb$''',
+]

@@ -1,0 +1,172 @@
+{
+  "title": "ZipViz v1 signature test vectors for POST /v1/verify",
+  "warning": "TEST ONLY. Both keys are published in RFC 8032 section 7.1 (TEST 1 and TEST 2). They are public, never register or trust them, never use them for anything real. All names are under example.test.viz.",
+  "rule": {
+    "signed_string": "JSON.stringify({v: 1, from, message, timestamp}), keys in exactly that order, encoded as UTF-8",
+    "algorithm": "Ed25519 (RFC 8032), pure, no prehash",
+    "signature": "base64 of the 64-byte signature",
+    "public_key": "hex, 32 bytes",
+    "timestamp": "ISO-8601, must be within +/-5 minutes of the verifier clock (now)"
+  },
+  "test_keys": {
+    "TEST 1": {
+      "source": "RFC 8032 section 7.1, TEST 1",
+      "secret_key": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+      "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+    },
+    "TEST 2": {
+      "source": "RFC 8032 section 7.1, TEST 2",
+      "secret_key": "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+      "public_key": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"
+    }
+  },
+  "cases": [
+    {
+      "name": "valid",
+      "description": "Correctly signed with TEST 1; timestamp is 30 seconds before now.",
+      "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "now": "2026-11-18T01:00:00.000Z",
+      "request": {
+        "from": "example.test.viz",
+        "message": "Hello from the ZipViz v1 test vectors",
+        "timestamp": "2026-11-18T00:59:30.000Z",
+        "signature": "I/lWCzfBPR3t2KNxYv2O5oGvpIfMoPWyzBmbwVU3tMVcpw1pzWRHxZnkN2I7Fl96wqlgJBoDTRzAD3RRMD3zCA=="
+      },
+      "signed_string": "{\"v\":1,\"from\":\"example.test.viz\",\"message\":\"Hello from the ZipViz v1 test vectors\",\"timestamp\":\"2026-11-18T00:59:30.000Z\"}",
+      "signed_with": "TEST 1",
+      "expected": {
+        "valid": true,
+        "reason": null
+      }
+    },
+    {
+      "name": "message_tampered",
+      "description": "Valid signature, but message was altered after signing.",
+      "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "now": "2026-11-18T01:00:00.000Z",
+      "request": {
+        "from": "example.test.viz",
+        "message": "Hello from the ZipViz v1 test vectors!",
+        "timestamp": "2026-11-18T00:59:30.000Z",
+        "signature": "I/lWCzfBPR3t2KNxYv2O5oGvpIfMoPWyzBmbwVU3tMVcpw1pzWRHxZnkN2I7Fl96wqlgJBoDTRzAD3RRMD3zCA=="
+      },
+      "signed_string": "{\"v\":1,\"from\":\"example.test.viz\",\"message\":\"Hello from the ZipViz v1 test vectors!\",\"timestamp\":\"2026-11-18T00:59:30.000Z\"}",
+      "signature_made_over": "{\"v\":1,\"from\":\"example.test.viz\",\"message\":\"Hello from the ZipViz v1 test vectors\",\"timestamp\":\"2026-11-18T00:59:30.000Z\"}",
+      "signed_with": "TEST 1",
+      "expected": {
+        "valid": false,
+        "reason": "E_SIG_MISMATCH"
+      }
+    },
+    {
+      "name": "from_tampered",
+      "description": "Valid signature, but from was altered after signing. The registry is assumed to resolve the altered name to the same public key, so the only fault is the signed from.",
+      "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "now": "2026-11-18T01:00:00.000Z",
+      "request": {
+        "from": "other.example.test.viz",
+        "message": "Hello from the ZipViz v1 test vectors",
+        "timestamp": "2026-11-18T00:59:30.000Z",
+        "signature": "I/lWCzfBPR3t2KNxYv2O5oGvpIfMoPWyzBmbwVU3tMVcpw1pzWRHxZnkN2I7Fl96wqlgJBoDTRzAD3RRMD3zCA=="
+      },
+      "signed_string": "{\"v\":1,\"from\":\"other.example.test.viz\",\"message\":\"Hello from the ZipViz v1 test vectors\",\"timestamp\":\"2026-11-18T00:59:30.000Z\"}",
+      "signature_made_over": "{\"v\":1,\"from\":\"example.test.viz\",\"message\":\"Hello from the ZipViz v1 test vectors\",\"timestamp\":\"2026-11-18T00:59:30.000Z\"}",
+      "signed_with": "TEST 1",
+      "expected": {
+        "valid": false,
+        "reason": "E_SIG_MISMATCH"
+      }
+    },
+    {
+      "name": "signature_from_different_key",
+      "description": "Signed with RFC 8032 TEST 2 instead of TEST 1, the key the verifier holds for from.",
+      "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "now": "2026-11-18T01:00:00.000Z",
+      "request": {
+        "from": "example.test.viz",
+        "message": "Hello from the ZipViz v1 test vectors",
+        "timestamp": "2026-11-18T00:59:30.000Z",
+        "signature": "ZPyhkkzTutM90Qxw0unKbzBckCF/r0adpWV8VBAwXO5g0kZpBAgRV+ACDR/KeIBMn8mYe2eEY4BVd1w4FO6dAw=="
+      },
+      "signed_string": "{\"v\":1,\"from\":\"example.test.viz\",\"message\":\"Hello from the ZipViz v1 test vectors\",\"timestamp\":\"2026-11-18T00:59:30.000Z\"}",
+      "signed_with": "TEST 2",
+      "expected": {
+        "valid": false,
+        "reason": "E_SIG_MISMATCH"
+      }
+    },
+    {
+      "name": "keys_in_wrong_order",
+      "description": "Signed over {v, message, from, timestamp} instead of {v, from, message, timestamp}. The request body is otherwise correct.",
+      "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "now": "2026-11-18T01:00:00.000Z",
+      "request": {
+        "from": "example.test.viz",
+        "message": "Hello from the ZipViz v1 test vectors",
+        "timestamp": "2026-11-18T00:59:30.000Z",
+        "signature": "o6J3DudNljtze0kH6DVTxJL1EjS/dWHkdOBIyzyZH1BBODjU/xP9sQsaaF4vbt+UY4+xrkmrUvPpylAu6GDmAQ=="
+      },
+      "signed_string": "{\"v\":1,\"from\":\"example.test.viz\",\"message\":\"Hello from the ZipViz v1 test vectors\",\"timestamp\":\"2026-11-18T00:59:30.000Z\"}",
+      "signature_made_over": "{\"v\":1,\"message\":\"Hello from the ZipViz v1 test vectors\",\"from\":\"example.test.viz\",\"timestamp\":\"2026-11-18T00:59:30.000Z\"}",
+      "signed_with": "TEST 1",
+      "expected": {
+        "valid": false,
+        "reason": "E_SIG_MISMATCH"
+      }
+    },
+    {
+      "name": "timestamp_6_minutes_old",
+      "description": "Correctly signed, but timestamp is 6 minutes before now (outside the +/-5 minute window).",
+      "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "now": "2026-11-18T01:00:00.000Z",
+      "request": {
+        "from": "example.test.viz",
+        "message": "Hello from the ZipViz v1 test vectors",
+        "timestamp": "2026-11-18T00:54:00.000Z",
+        "signature": "QHWzJdo296nNie4/QrJQfd4VQ+KjmBGwtYC1CEF+RgkiATp+9/yPHDAkqzq6JexcCzo108SUbRnq7BNvJJeQCg=="
+      },
+      "signed_string": "{\"v\":1,\"from\":\"example.test.viz\",\"message\":\"Hello from the ZipViz v1 test vectors\",\"timestamp\":\"2026-11-18T00:54:00.000Z\"}",
+      "signed_with": "TEST 1",
+      "expected": {
+        "valid": false,
+        "reason": "E_STALE"
+      }
+    },
+    {
+      "name": "timestamp_6_minutes_future",
+      "description": "Correctly signed, but timestamp is 6 minutes after now (outside the +/-5 minute window).",
+      "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "now": "2026-11-18T01:00:00.000Z",
+      "request": {
+        "from": "example.test.viz",
+        "message": "Hello from the ZipViz v1 test vectors",
+        "timestamp": "2026-11-18T01:06:00.000Z",
+        "signature": "B0yKBA9/pt1erdSJhHw7JwW1dGqk2ZIBC/hlQRpx6CjFU0okl04pCkicp2rEfMGywfROxpIMj/FTo+wKe2TEAw=="
+      },
+      "signed_string": "{\"v\":1,\"from\":\"example.test.viz\",\"message\":\"Hello from the ZipViz v1 test vectors\",\"timestamp\":\"2026-11-18T01:06:00.000Z\"}",
+      "signed_with": "TEST 1",
+      "expected": {
+        "valid": false,
+        "reason": "E_STALE"
+      }
+    },
+    {
+      "name": "non_ascii_message",
+      "description": "Correctly signed message with accented characters, CJK and emoji. JSON.stringify writes them as raw UTF-8, not \\u escapes.",
+      "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "now": "2026-11-18T01:00:00.000Z",
+      "request": {
+        "from": "example.test.viz",
+        "message": "Café déjà vu — naïve résumé 日本語 👋🌍",
+        "timestamp": "2026-11-18T00:59:30.000Z",
+        "signature": "Ow9uth6bVCfxD0IWNlb2ESShPyqzBPuSbpG1ZziwzN422greVnuk0cD0hc3WeZKASxMp6TWMrejt9pE+itY/Cg=="
+      },
+      "signed_string": "{\"v\":1,\"from\":\"example.test.viz\",\"message\":\"Café déjà vu — naïve résumé 日本語 👋🌍\",\"timestamp\":\"2026-11-18T00:59:30.000Z\"}",
+      "signed_with": "TEST 1",
+      "expected": {
+        "valid": true,
+        "reason": null
+      }
+    }
+  ]
+}
