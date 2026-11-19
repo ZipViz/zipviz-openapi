@@ -5,6 +5,7 @@ All notable changes to this specification are listed here.
 ## Unreleased
 
 - Add v1 signature test vectors (`test-vectors/verify-v1.json`) and an offline checker (`test-vectors/check.mjs`) with a CI job.
+- Add a proposed payment plug design (`docs/payment-plug.md`): a signed v=4 payment envelope and a provider adapter interface, with x402 as the reference adapter. Proposed only; the API is unchanged.
 
 ## 1.0.0
 

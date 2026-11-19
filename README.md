@@ -80,6 +80,10 @@ It rebuilds the signed bytes for every case, verifies each signature against the
 
 **The keys are TEST ONLY.** The vectors use the public Ed25519 test keys from RFC 8032 section 7.1: TEST 1 signs and verifies, and TEST 2 makes the signature in `signature_from_different_key`. Their secret keys are published in the RFC and in the vector file. Never register them or use them for anything real. All names are under `example.test.viz`.
 
+## Proposals
+
+- [Payment plug](docs/payment-plug.md): bring your own payment provider. A proposed signed payment envelope (v=4) and provider adapter interface. Not implemented; the API above is unchanged.
+
 ## Start here
 
 - [zipviz-cli](https://github.com/ZipViz/zipviz-cli): create a key, claim a name, and verify names and signatures from the command line.
