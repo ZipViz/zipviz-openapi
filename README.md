@@ -82,7 +82,7 @@ It rebuilds the signed bytes for every case, verifies each signature against the
 
 ## Proposals
 
-- [Payment plug](docs/payment-plug.md): bring your own payment provider. A proposed signed payment envelope (v=4) and provider adapter interface. Not implemented; the API above is unchanged.
+- [Payment plug](docs/payment-plug.md): bring your own payment provider. A proposed signed payment envelope (v=5) and provider adapter interface. Not implemented; the API above is unchanged.
 
 ## Start here
 

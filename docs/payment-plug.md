@@ -1,7 +1,7 @@
 # Payment plug: bring your own provider
 
 **Status: Proposed. Not implemented.** Nothing here changes the live API or `openapi.json`. This
-document proposes a signed payment envelope (v=4) and a provider adapter interface, for review
+document proposes a signed payment envelope (v=5) and a provider adapter interface, for review
 before any code is written.
 
 ## What this is
@@ -34,13 +34,13 @@ x402 is the reference adapter. Other providers map onto the same interface (see
 1. The payer asks for a resource. The payee answers with its payment offers, in the provider's own
    format (`requirements()`).
 2. The payer picks an offer and makes the provider payment credential (`pay()`). Then it signs a
-   v=4 envelope over that offer's terms and a hash of the credential, and sends both.
+   v=5 envelope over that offer's terms and a hash of the credential, and sends both.
 3. The payee finds which of its own offers the credential pays, checks the envelope, and reserves
-   the payment so it can't run twice (see [Verifying a v=4 envelope](#verifying-a-v4-envelope)).
+   the payment so it can't run twice (see [Verifying a v=5 envelope](#verifying-a-v5-envelope)).
    This is local and costs no money.
 4. The payee asks the provider to verify and settle the credential against the payee's own copy of
    the offer (`verify()`, `settle()`), in the order the provider requires.
-5. Optionally, the payee returns a signed receipt record (a v=4 envelope signed by the payee).
+5. Optionally, the payee returns a signed receipt record (a v=5 envelope signed by the payee).
 
 ## Envelope versions
 
@@ -51,21 +51,22 @@ Every ZipViz envelope carries its version `v` as the first key **inside the sign
 | 1 | Signed message checked by `POST /v1/verify` | `openapi.json` |
 | 2 | Direct message between agents (`to`, `msg_id`, `expires_at`, optional `reply_to`) | zipviz-mcp `src/core/envelope.ts` |
 | 3 | v=2 plus `conversation` | zipviz-mcp `src/core/envelope.ts` |
-| 4 | **Proposed:** payment envelope | This document |
+| 4 | Reserved for another envelope; not used by payments | |
+| 5 | **Proposed:** payment envelope | This document |
 
 Rules for every version:
 
-- The meaning of a published version never changes. v=4 changes nothing about v=1, v=2 or v=3.
-  Payment is a separate, payer-signed v=4 envelope, not a new block inside v=2 or v=3: a block
+- The meaning of a published version never changes. v=5 changes nothing about any other version.
+  Payment is a separate, payer-signed v=5 envelope, not a new block inside v=2 or v=3: a block
   added there would change what those signed envelopes mean, and verifiers built before it would
-  skip it without saying so. A v=4 envelope can point at a direct message with `msg_id`.
+  skip it without saying so. A v=5 envelope can point at a direct message with `msg_id`.
 - A verifier checks only the versions it implements. It **rejects** an envelope with any other
   `v`. It never strips unknown fields and verifies the rest as an older version.
-- Because `v` is signed, a v=4 signature can't verify as v=1, v=2 or v=3, and the reverse. A
-  verifier that only knows v=1 (for example today's `POST /v1/verify`) answers a v=4 envelope with
+- Because `v` is signed, a v=5 signature can't verify as any other version, and the reverse. A
+  verifier that only knows v=1 (for example today's `POST /v1/verify`) answers a v=5 envelope with
   `verified: false`. It fails closed.
 
-## Envelope v=4
+## Envelope v=5
 
 ### Signed string
 
@@ -73,7 +74,7 @@ The signer signs the UTF-8 bytes of:
 
 ```js
 JSON.stringify({
-  v: 4,
+  v: 5,
   from,       // the signer's .viz name
   message,    // app text, may be ""
   timestamp,  // ISO-8601
@@ -97,7 +98,7 @@ Keys go in exactly this order. An optional key that has no value (`msg_id`, and 
 
 | Field | Required | Rule |
 |---|---|---|
-| `v` | yes | The number `4` |
+| `v` | yes | The number `5` |
 | `from` | yes | The signer's registered `.viz` name |
 | `message` | yes | App text, may be empty, at most 512 bytes of UTF-8. Never put personal data or payment credentials here. |
 | `timestamp` | yes | ISO-8601, within ±5 minutes of the verifier's clock |
@@ -113,7 +114,7 @@ Keys go in exactly this order. An optional key that has no value (`msg_id`, and 
 | `payment.receipt_id` | receipt records only | The provider's id for the settled payment, at most 256 characters |
 | `payment.receipt_sig` | receipt records only | The provider's receipt signature exactly as the provider returned it, at most 8192 characters. ZipViz treats it as opaque; check it with the provider's own rules. |
 
-### Two kinds of v=4 envelope
+### Two kinds of v=5 envelope
 
 - **Payer envelope.** Signed by the payer before payment (`from` = `payment.payer`). It has no
   `receipt_id` or `receipt_sig`. It says: "this `.viz` agent authorizes this payment, on these
@@ -134,13 +135,13 @@ anything real. Here, `ref` is the SHA-256 of the placeholder credential
 Signed string (one line):
 
 ```text
-{"v":4,"from":"payer.example.test.viz","message":"","timestamp":"2026-11-20T00:00:00.000Z","payment":{"provider":"x402","payer":"payer.example.test.viz","payee":"0x1111111111111111111111111111111111111111","amount":"10000","asset":"0x036CbD53842c5426634e7929541eC2318f3dCF7e","network":"eip155:84532","resource":"https://api.example.test/data","ref":"iHG7YrWWfTlQzuX-voU7wWCgvBVcwwuhvfCVAATd_Rc"}}
+{"v":5,"from":"payer.example.test.viz","message":"","timestamp":"2026-11-20T00:00:00.000Z","payment":{"provider":"x402","payer":"payer.example.test.viz","payee":"0x1111111111111111111111111111111111111111","amount":"10000","asset":"0x036CbD53842c5426634e7929541eC2318f3dCF7e","network":"eip155:84532","resource":"https://api.example.test/data","ref":"iHG7YrWWfTlQzuX-voU7wWCgvBVcwwuhvfCVAATd_Rc"}}
 ```
 
 Signature (base64):
 
 ```text
-pTcO+ME0WTLFf4CXLnhsT8Th3dmygbJ5wVb80xHarmynPYuwIB2kQI/uc5MzhtFVi5did9qg3gaGv250lh+aBQ==
+t+u/QASiAxw1ylnXCKB6KpIUd8e5A8AV+PzB5cP/gg8S9tRjPkD1v5U/PfJDEYPgzavHZok6FZHOFmbALtcbBg==
 ```
 
 It verifies with public key `d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a`.
@@ -150,7 +151,7 @@ As a `ZipViz-Payment-Identity` header value (the signed fields plus `signature`,
 without padding, 667 characters, one line):
 
 ```text
-eyJ2Ijo0LCJmcm9tIjoicGF5ZXIuZXhhbXBsZS50ZXN0LnZpeiIsIm1lc3NhZ2UiOiIiLCJ0aW1lc3RhbXAiOiIyMDI2LTExLTIwVDAwOjAwOjAwLjAwMFoiLCJwYXltZW50Ijp7InByb3ZpZGVyIjoieDQwMiIsInBheWVyIjoicGF5ZXIuZXhhbXBsZS50ZXN0LnZpeiIsInBheWVlIjoiMHgxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwiYW1vdW50IjoiMTAwMDAiLCJhc3NldCI6IjB4MDM2Q2JENTM4NDJjNTQyNjYzNGU3OTI5NTQxZUMyMzE4ZjNkQ0Y3ZSIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MzIiLCJyZXNvdXJjZSI6Imh0dHBzOi8vYXBpLmV4YW1wbGUudGVzdC9kYXRhIiwicmVmIjoiaUhHN1lyV1dmVGxRenVYLXZvVTd3V0NndkJWY3d3dWh2ZkNWQUFUZF9SYyJ9LCJzaWduYXR1cmUiOiJwVGNPK01FMFdUTEZmNENYTG5oc1Q4VGgzZG15Z2JKNXdWYjgweEhhcm15blBZdXdJQjJrUUkvdWM1TXpodEZWaTVkaWQ5cWczZ2FHdjI1MGxoK2FCUT09In0
+eyJ2Ijo1LCJmcm9tIjoicGF5ZXIuZXhhbXBsZS50ZXN0LnZpeiIsIm1lc3NhZ2UiOiIiLCJ0aW1lc3RhbXAiOiIyMDI2LTExLTIwVDAwOjAwOjAwLjAwMFoiLCJwYXltZW50Ijp7InByb3ZpZGVyIjoieDQwMiIsInBheWVyIjoicGF5ZXIuZXhhbXBsZS50ZXN0LnZpeiIsInBheWVlIjoiMHgxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwiYW1vdW50IjoiMTAwMDAiLCJhc3NldCI6IjB4MDM2Q2JENTM4NDJjNTQyNjYzNGU3OTI5NTQxZUMyMzE4ZjNkQ0Y3ZSIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MzIiLCJyZXNvdXJjZSI6Imh0dHBzOi8vYXBpLmV4YW1wbGUudGVzdC9kYXRhIiwicmVmIjoiaUhHN1lyV1dmVGxRenVYLXZvVTd3V0NndkJWY3d3dWh2ZkNWQUFUZF9SYyJ9LCJzaWduYXR1cmUiOiJ0K3UvUUFTaUF4dzF5bG5YQ0tCNktwSVVkOGU1QThBVitQekI1Y1AvZ2c4Uzl0UmpQa0QxdjVVL1BmSkRFWVBnemF2SFpvazZGWkhPRm1iQUx0Y2JCZz09In0
 ```
 
 ### On the wire
@@ -165,8 +166,10 @@ eyJ2Ijo0LCJmcm9tIjoicGF5ZXIuZXhhbXBsZS50ZXN0LnZpeiIsIm1lc3NhZ2UiOiIiLCJ0aW1lc3Rh
   be larger must shorten `message` or `resource`. With the provider's own headers, that stays
   inside common limits of 8 KB per field and 16 KB for all headers.
 - **Rejected without calling the provider (`E_ENCODING`):** a value over 4096 characters; any other
-  character, or padding; more than 3072 decoded bytes; invalid UTF-8; JSON that does not parse, is
-  not an object, or has a duplicate key where the parser can detect one. The payee answers 400,
+  character, or padding; more than 3072 decoded bytes; invalid UTF-8; JSON that does not parse or
+  is not an object; and JSON with a duplicate member name at any depth, always. Use a decoder that
+  reports duplicates, or check before parsing: a parser that silently keeps the last value is not
+  enough, because two parsers could then read different fields from the same bytes. The payee answers 400,
   or 402 when its offer requires identity. A malformed envelope is never ignored and treated as
   absent.
 - **Signed bytes.** A verifier rebuilds the signed string from the decoded fields in the fixed
@@ -175,13 +178,13 @@ eyJ2Ijo0LCJmcm9tIjoicGF5ZXIuZXhhbXBsZS50ZXN0LnZpeiIsIm1lc3NhZ2UiOiIiLCJ0aW1lc3Rh
 **Receipt records** are never sent in a header. When they are exchanged, they go as an
 `application/json` body (the same object, not base64-encoded), at most 16 KiB.
 
-## Verifying a v=4 envelope
+## Verifying a v=5 envelope
 
 The payee does this before it calls the provider. Every step must pass. The codes are suggested
 names for local verifiers, not API responses.
 
 0. **Decode.** The header follows [On the wire](#on-the-wire) (`E_ENCODING`).
-1. **Version.** `v` is `4`. Anything else is rejected (`E_VERSION`).
+1. **Version.** `v` is `5`. Anything else is rejected (`E_VERSION`).
 2. **Shape.** Every field follows the rules above, with no unknown keys at the top level or in
    `payment` (`E_SHAPE`). A new field needs a new version.
 3. **Fresh.** `timestamp` is within ±5 minutes of the verifier's clock (`E_STALE`).
@@ -196,8 +199,8 @@ names for local verifiers, not API responses.
    `asset`, `network` and `resource` equal `terms()` of that issued offer, and `resource` is the
    URL that was requested. `ref` equals the hash of the credential that came with this request
    (`E_PAYMENT_MISMATCH`).
-8. **Reserve.** Atomically claim (`from`, `ref`) before any provider call. If it is already
-   claimed, reject (`E_REPLAY`), except as
+8. **Reserve.** Atomically claim the credential, keyed by (`provider`, `ref`), before any provider
+   call, and store `from` on the claim. If it is already claimed, reject (`E_REPLAY`), except as
    [Replay reservation and retries](#replay-reservation-and-retries) allows.
 
 A valid payer envelope proves **who** authorized the payment. Only the provider's verify and
@@ -206,28 +209,34 @@ settle prove the money. If the provider then settles an amount, it must not be m
 
 ### Replay reservation and retries
 
+- **Keyed by the credential, not the signer.** The claim key is (`provider`, `ref`). The provider
+  credential is not bound to any `.viz` name, so anyone who copies a credential could sign their
+  own envelope over it. A key that included `from` would let two names claim the same credential
+  and both reach the provider. The claim stores the `from` that made it. A request for a claimed
+  credential under any other `from` is always `E_REPLAY`, even on the retry paths below.
 - **Atomic.** The claim is a single insert-if-absent, such as a unique key or a compare-and-set,
   in a store that every instance of the payee shares. A read followed by a write is not enough:
   two copies of one request could both pass the read and both reach the provider.
 - **States.** A claim starts as `reserved` and ends as `settled` or `failed`. It records the
-  issued offer it matched and the provider's result.
+  original `from`, the issued offer it matched, and the provider's result.
 - **Keep claims** until neither the envelope nor the credential can be accepted again: the later
   of the envelope's freshness window (`timestamp` plus 5 minutes) and the credential's own expiry
   at the provider (for x402, the offer's `maxTimeoutSeconds` or the scheme's validity window). If
   the provider gives no expiry, keep claims for at least 24 hours.
 - **Envelope fails before the claim.** Nothing is claimed. The payer may send a corrected
   envelope with the same credential.
-- **Provider says the payment is invalid.** The claim becomes `failed`, and the same (`from`,
+- **Provider says the payment is invalid.** The claim becomes `failed`, and the same (`provider`,
   `ref`) is never tried again. The payer needs a new credential.
 - **Outcome unknown** (timeout, server error, lost connection). The claim stays `reserved`. A
-  repeat of the same request may only resume, by calling the provider again with the **same
+  repeat of the same request, from the claim's original `from`, may only resume, by calling the provider again with the **same
   idempotency key**, or by asking the provider for the outcome. It never starts a second
   settlement. If the provider offers neither, the payee does not settle again and treats the
   claim as `failed`.
-- **Already settled.** A repeat gets the stored result (for x402, the same `PAYMENT-RESPONSE`) and
-  is not settled again.
+- **Already settled.** A repeat from the original `from` gets the stored result (for x402, the
+  same `PAYMENT-RESPONSE`) and is not settled again.
 - **Idempotency key.** Use `ref` as the provider idempotency key wherever the provider supports
-  one. Where the provider has none, the claim is the only guard, so it must be atomic.
+  one, as a second layer. The (`provider`, `ref`) claim is the main uniqueness guard, and where
+  the provider has no idempotency key it is the only one, so it must be atomic.
 
 ## Provider adapter interface
 
@@ -326,12 +335,12 @@ with HTTP 402 and three headers:
 | `match()` | Decode `PAYMENT-SIGNATURE`. Its `accepted` must equal one of the payee's issued `accepts[]` entries, field for field, as x402 requires. |
 | `verify()` | The facilitator's `POST /verify` with `paymentPayload` and the payee's **issued** entry as `paymentRequirements` |
 | `settle()` | The facilitator's `POST /settle`, with the same issued entry. `receipt_id` = `SettlementResponse.transaction`. If the payee uses the x402 offer-and-receipt extension, `receipt_sig` = that receipt's `signature`. |
-| Idempotency | If the payer includes the x402 `payment-identifier` extension, facilitators that support it deduplicate on that id. In every case the payee's atomic (`from`, `ref`) claim stops a second settlement. |
+| Idempotency | If the payer includes the x402 `payment-identifier` extension, facilitators that support it deduplicate on that id. In every case the payee's atomic (`provider`, `ref`) claim stops a second settlement. |
 
 How the identity rides along:
 
 - **Advertise.** A payee that wants identity adds an x402 extension to `PaymentRequired`:
-  `"zipviz-identity": {"info": {"required": true, "versions": [4]}, "schema": {...}}`. x402
+  `"zipviz-identity": {"info": {"required": true, "versions": [5]}, "schema": {...}}`. x402
   clients echo extension info unchanged, as x402 requires.
 - **Attach.** The payer sends `ZipViz-Payment-Identity` in the same request as
   `PAYMENT-SIGNATURE`. `ref` is the SHA-256 of the `PAYMENT-SIGNATURE` value exactly as sent (for
@@ -368,8 +377,9 @@ documentation before building an adapter.
   payment. A settled payment without an envelope is an anonymous payment; whether to accept it is
   the payee's choice.
 - **Bound and single-use.** `ref`, the terms, the resource, the 5-minute window and the atomic
-  (`from`, `ref`) claim tie one envelope to one payment. A captured envelope can't be reused for
-  another payment, payee or resource, and two copies sent at once can't both settle.
+  (`provider`, `ref`) claim tie one envelope to one payment. A captured envelope can't be reused
+  for another payment, payee or resource. Two copies sent at once can't both settle, even when a
+  copied credential is signed again under a different `.viz` name.
 - **The payee's offer is the authority.** The provider verifies and settles against the offer the
   payee issued, never one the payer sends back.
 - **No spendable data in the envelope.** It carries a hash of the credential, never the credential
@@ -384,12 +394,12 @@ documentation before building an adapter.
 
 ## Open questions
 
-Decided: payment is its own v=4 envelope, with an optional `msg_id` that points at a v=2 or v=3
+Decided: payment is its own v=5 envelope, with an optional `msg_id` that points at a v=2 or v=3
 direct message (see [Envelope versions](#envelope-versions)).
 
 1. **Other x402 transports.** Where the envelope goes, and what `ref` hashes, for x402 over MCP and
    A2A, which have no HTTP headers.
-2. **Server-side check.** Keep v=4 verification local (proposed), or add a registry endpoint for
+2. **Server-side check.** Keep v=5 verification local (proposed), or add a registry endpoint for
    it later?
 3. **Names.** The header name `ZipViz-Payment-Identity`, the x402 extension key
    `zipviz-identity`, and how new provider ids are assigned.
