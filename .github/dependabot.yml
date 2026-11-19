@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+  # The OpenAPI validator used by the Spec workflow (.github/spec-check).
+  - package-ecosystem: pip
+    directory: /.github/spec-check
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      spec-check:
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

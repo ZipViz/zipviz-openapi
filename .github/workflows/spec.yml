@@ -1,0 +1,28 @@
+name: Spec
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The runner's own Python. The validator and every dependency are pinned by hash
+      # in .github/spec-check/requirements.txt (generated from requirements.in with
+      # pip-compile --generate-hashes), and only wheels are installed.
+      - name: Install the OpenAPI validator
+        run: |
+          python3 -m venv "$RUNNER_TEMP/spec-check"
+          "$RUNNER_TEMP/spec-check/bin/pip" install --quiet --require-hashes --only-binary=:all: \
+            -r .github/spec-check/requirements.txt
+      - name: Validate openapi.json against the OpenAPI 3.1 schema
+        run: '"$RUNNER_TEMP/spec-check/bin/openapi-spec-validator" openapi.json'

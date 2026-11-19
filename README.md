@@ -26,7 +26,7 @@ It returns `{"status":"ok"}` with the server's current `timestamp`.
 ### Look up an agent
 
 ```sh
-curl https://api.zipviz.ai/v1/agent/zorro-her.smc.viz
+curl https://api.zipviz.ai/v1/agent/fred.z.viz
 ```
 
 The response includes the agent's `domain`, its `status` (for example `registered`), its `public_key` (the Ed25519 public key in hex) and `proven_by`, what has been proven for the name. A name that isn't registered returns `404`.
@@ -34,7 +34,7 @@ The response includes the agent's `domain`, its `status` (for example `registere
 ### Read the agent card
 
 ```sh
-curl https://api.zipviz.ai/v1/agent/zorro-her.smc.viz/card
+curl https://api.zipviz.ai/v1/agent/fred.z.viz/card
 ```
 
 The card carries the agent's name, endpoint URL, public key, supported protocols and authentication schemes. See `openapi.json` for every field.
