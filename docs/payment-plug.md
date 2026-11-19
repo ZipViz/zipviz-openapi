@@ -54,6 +54,9 @@ Every ZipViz envelope carries its version `v` as the first key **inside the sign
 Rules for every version:
 
 - The meaning of a published version never changes. v=4 changes nothing about v=1, v=2 or v=3.
+  Payment is a separate, payer-signed v=4 envelope, not a new block inside v=2 or v=3: a block
+  added there would change what those signed envelopes mean, and verifiers built before it would
+  skip it without saying so. A v=4 envelope can point at a direct message with `msg_id`.
 - A verifier checks only the versions it implements. It **rejects** an envelope with any other
   `v`. It never strips unknown fields and verifies the rest as an older version.
 - Because `v` is signed, a v=4 signature can't verify as v=1, v=2 or v=3, and the reverse. A
@@ -72,6 +75,7 @@ JSON.stringify({
   from,       // the signer's .viz name
   message,    // app text, may be ""
   timestamp,  // ISO-8601
+  msg_id,     // optional: the v=2 or v=3 direct message this payment belongs to
   payment: {
     provider, payer, payee, amount, asset,
     network,      // omitted when the provider has none
@@ -83,8 +87,8 @@ JSON.stringify({
 })
 ```
 
-Keys go in exactly this order. An optional key that has no value is **left out**, never sent as
-`null` or `""`. Every `payment` value is a string. The signature is Ed25519 with the `.viz` key,
+Keys go in exactly this order. An optional key that has no value (`msg_id`, and the optional
+`payment` keys) is **left out**, never sent as `null` or `""`. Every `payment` value is a string. The signature is Ed25519 with the `.viz` key,
 64 bytes, sent base64-encoded, the same as v=1.
 
 ### Fields
@@ -95,6 +99,7 @@ Keys go in exactly this order. An optional key that has no value is **left out**
 | `from` | yes | The signer's registered `.viz` name |
 | `message` | yes | App text, may be empty. Never put personal data or payment credentials here. |
 | `timestamp` | yes | ISO-8601, within ±5 minutes of the verifier's clock |
+| `msg_id` | no | The `msg_id` of the v=2 or v=3 direct message this payment belongs to, same shape (`^[A-Za-z0-9_-]{8,128}$`). It points at that message; it does not change what the message's own signature means. |
 | `payment.provider` | yes | Provider id, `^[a-z0-9][a-z0-9-]{0,31}$`. This document defines `x402`, `skyfire` and `stripe-acp`. |
 | `payment.payer` | yes | The payer's `.viz` name. In a payer envelope it equals `from`. |
 | `payment.payee` | yes | The payee's id at the provider (x402: `payTo`), at most 256 characters |
@@ -163,7 +168,9 @@ names for local verifiers, not API responses.
 4. **Key.** Look up `from` with `GET /v1/agent/{domain}`. It must be registered and not suspended
    (`E_AGENT_NOT_FOUND`, `E_IDENTITY_SUSPENDED`). Cache the key for at most 60 seconds.
 5. **Signature.** Ed25519 over the rebuilt signed string (`E_SIG_MISMATCH`).
-6. **Payer.** In a payer envelope, `payment.payer` equals `from` (`E_SHAPE`).
+6. **Payer.** In a payer envelope, `payment.payer` equals `from` (`E_SHAPE`). If `msg_id` is
+   present and the payee relies on it, the direct message it names must be one the payee received
+   from the same `from` (`E_PAYMENT_MISMATCH`).
 7. **Binding.** `provider` is the adapter handling this request. `ref` equals the hash of the
    credential that came with this request. `payee`, `amount`, `asset`, `network` and `resource`
    equal the terms the payee offered and the URL that was requested (`E_PAYMENT_MISMATCH`).
@@ -298,11 +305,12 @@ documentation before building an adapter.
 
 ## Open questions
 
-1. **Version.** v=4 as a separate payment envelope, or an optional `payment` block on v=2 and v=3
-   so that a direct message can also carry a payment?
-2. **Other x402 transports.** Where the envelope goes, and what `ref` hashes, for x402 over MCP and
+Decided: payment is its own v=4 envelope, with an optional `msg_id` that points at a v=2 or v=3
+direct message (see [Envelope versions](#envelope-versions)).
+
+1. **Other x402 transports.** Where the envelope goes, and what `ref` hashes, for x402 over MCP and
    A2A, which have no HTTP headers.
-3. **Server-side check.** Keep v=4 verification local (proposed), or add a registry endpoint for
+2. **Server-side check.** Keep v=4 verification local (proposed), or add a registry endpoint for
    it later?
-4. **Names.** The header names `ZipViz-Payment-Identity` and `ZipViz-Payment-Receipt`, the x402
+3. **Names.** The header names `ZipViz-Payment-Identity` and `ZipViz-Payment-Receipt`, the x402
    extension key `zipviz-identity`, and how new provider ids are assigned.
