@@ -592,7 +592,7 @@
             }
           },
           "405": {
-            "description": "Method not allowed: this path answers `POST` only. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
+            "description": "Method not allowed: any method other than `POST` on this path. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -658,7 +658,7 @@
             }
           },
           "405": {
-            "description": "Method not allowed: this path answers `GET` only. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
+            "description": "Method not allowed: any method other than `GET` on this path. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -735,7 +735,7 @@
             }
           },
           "405": {
-            "description": "Method not allowed: this path answers `GET` only, and `{signup_id}` must be a lowercase UUIDv4. Any other form of the id is answered with 405, not 404. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
+            "description": "Method not allowed: a `{signup_id}` that is not a lowercase UUIDv4 (any method), or a method other than `GET` on an existing signup. A well-formed `{signup_id}` is looked up before the method is checked, so a wrong method on an unknown id answers `404 E_SIGNUP_NOT_FOUND`; 405 comes only once that signup exists. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -881,7 +881,7 @@
             }
           },
           "405": {
-            "description": "Method not allowed: this path answers `POST` only, and `{signup_id}` must be a lowercase UUIDv4. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
+            "description": "Method not allowed: a `{signup_id}` that is not a lowercase UUIDv4 (any method), or a method other than `POST` on an existing signup. A well-formed `{signup_id}` is looked up before the method is checked, so a wrong method on an unknown id answers `404 E_SIGNUP_NOT_FOUND`; 405 comes only once that signup exists. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
             "content": {
               "application/json": {
                 "schema": {
