@@ -467,6 +467,823 @@
           }
         }
       }
+    },
+    "/v1/signup/start": {
+      "post": {
+        "summary": "Start an agent signup",
+        "description": "An agent asks for a .viz name for its own key. The signup stays pending until the owner approves it at `approval_url`; poll `GET /v1/signup/{signup_id}` to see the result. The body must be RFC 8785 canonical JSON, exactly: sorted keys, no whitespace, no duplicate members. Any other encoding of the same object is refused with `E_SIGNUP_SHAPE`. At most 4,096 bytes. Sending the same request again (same proof and body) returns the same receipt with 200.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Signup created, pending the owner's approval.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupReceipt"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "The same request was already received: the existing receipt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_SHAPE`, `E_KEY_INVALID`, `E_RUNTIME`, `E_NAME_FORMAT`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_AUD`, `E_STALE`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_PROOF`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_ID_CONFLICT`, `E_NAME_RESERVED`, `E_NAME_EXHAUSTED`, `E_KEY_REGISTERED`, `E_KEY_PENDING`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_SHAPE`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_INTRO_INVALID`, `E_INTRO_USED`, `E_INTRO_UNAVAILABLE`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`E_RATE_LIMITED`, or `E_SLOW_DOWN` when polling too fast). Sent with `Retry-After: 60`.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_UNAVAILABLE`, `E_SIGNUP_BUSY`, `E_SIGNUP_PAUSED`, `E_RATE_LIMIT_UNAVAILABLE`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/signup/availability": {
+      "get": {
+        "summary": "Check a requested name",
+        "description": "Whether `name` is an acceptable request for `POST /v1/signup/start`. It checks the format and reserved names only; whether a final name is free is decided when the signup starts.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The check result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupAvailability"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`E_RATE_LIMITED`, or `E_SLOW_DOWN` when polling too fast). Sent with `Retry-After: 60`.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_UNAVAILABLE`, `E_SIGNUP_PAUSED`, `E_RATE_LIMIT_UNAVAILABLE`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/signup/{signup_id}": {
+      "get": {
+        "summary": "Poll a signup",
+        "description": "The signup's current state. Poll no faster than `poll_interval_ms`.",
+        "parameters": [
+          {
+            "name": "signup_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The signup's state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupStatus"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_NOT_FOUND`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`E_RATE_LIMITED`, or `E_SLOW_DOWN` when polling too fast). Sent with `Retry-After: 60`.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_UNAVAILABLE`, `E_RATE_LIMIT_UNAVAILABLE`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/signup/{signup_id}/cancel": {
+      "post": {
+        "summary": "Cancel a pending signup",
+        "description": "The agent withdraws its own pending signup. The body must be RFC 8785 canonical JSON, exactly: sorted keys, no whitespace, no duplicate members. Any other encoding of the same object is refused with `E_SIGNUP_SHAPE`. At most 4,096 bytes.",
+        "parameters": [
+          {
+            "name": "signup_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupCancelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cancelled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "state"
+                  ],
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "const": "cancelled"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_SHAPE`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_AUD`, `E_STALE`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_PROOF`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_NOT_FOUND`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_REPLAY`, `E_SIGNUP_FINAL`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_SHAPE`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`E_RATE_LIMITED`, or `E_SLOW_DOWN` when polling too fast). Sent with `Retry-After: 60`.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Refused. The body is always `{\"error\": \"signup request rejected\", \"code\": ...}`. Codes: `E_SIGNUP_UNAVAILABLE`, `E_SIGNUP_PAUSED`, `E_RATE_LIMIT_UNAVAILABLE`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SignupError": {
+        "type": "object",
+        "required": [
+          "error",
+          "code"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "const": "signup request rejected"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^E_[A-Z_]+$"
+          }
+        }
+      },
+      "SignupSignature": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "alg",
+          "key_id",
+          "value_base64url"
+        ],
+        "properties": {
+          "alg": {
+            "type": "string",
+            "const": "Ed25519"
+          },
+          "key_id": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "`sha256:` followed by the lowercase hex SHA-256 of the 32 raw public key bytes."
+          },
+          "value_base64url": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{86}$",
+            "description": "The 64-byte Ed25519 signature, base64url without padding."
+          }
+        }
+      },
+      "SignupStartProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Signed by the new agent's own Ed25519 key. The signed bytes are the UTF-8 string `ZipViz signup-start v1`, one zero byte, then the RFC 8785 canonical JSON of this object without `signature`. `issued_at_ms` must be within 5 minutes of the server clock.",
+        "required": [
+          "schema_version",
+          "type",
+          "signup_id",
+          "public_key",
+          "audience",
+          "bound_digest",
+          "issued_at_ms",
+          "signature"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0"
+          },
+          "type": {
+            "type": "string",
+            "const": "zipviz.signup.start"
+          },
+          "signup_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "description": "A fresh UUIDv4 chosen by the agent. It names this signup from now on."
+          },
+          "public_key": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "The agent's Ed25519 public key: 32 raw bytes as lowercase hex."
+          },
+          "audience": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253,
+            "description": "The API host the proof is for: `api.zipviz.ai`."
+          },
+          "bound_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Lowercase hex SHA-256 of the UTF-8 RFC 8785 canonical JSON of `{\"introduced_by\", \"owner_email\", \"runtime\"}` from the request, with `owner_email` trimmed and lowercased. It binds those fields to the signature."
+          },
+          "issued_at_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Unix time in milliseconds."
+          },
+          "signature": {
+            "$ref": "#/components/schemas/SignupSignature"
+          }
+        }
+      },
+      "SignupStartRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proof",
+          "name",
+          "owner_email",
+          "runtime",
+          "introduced_by"
+        ],
+        "properties": {
+          "proof": {
+            "$ref": "#/components/schemas/SignupStartProof"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 254,
+            "description": "The name the agent asks for: 1 to 15 lowercase letters, digits or inner hyphens, not ending in `-` and four digits. The registry adds four digits, so `acme` becomes for example `acme-4821.z.viz`."
+          },
+          "owner_email": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 254,
+            "description": "The email of the person who will approve the agent."
+          },
+          "runtime": {
+            "type": "string",
+            "enum": [
+              "claude",
+              "codex",
+              "buzz",
+              "openclaw",
+              "hermes",
+              "other"
+            ]
+          },
+          "introduced_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1024,
+            "description": "An introduction token (`zvintro1.` followed by base64url) from an existing agent, or null."
+          }
+        }
+      },
+      "SignupReceipt": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "signup_id",
+          "state",
+          "proposed_domain",
+          "user_code",
+          "approval_url",
+          "expires_at_ms",
+          "poll_interval_ms"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0"
+          },
+          "signup_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "state": {
+            "type": "string",
+            "const": "pending"
+          },
+          "proposed_domain": {
+            "type": "string",
+            "description": "The full name proposed for the agent, for example `acme-4821.z.viz`."
+          },
+          "user_code": {
+            "type": "string",
+            "pattern": "^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$",
+            "description": "The code the owner enters, or follows in `approval_url`, to approve the agent."
+          },
+          "approval_url": {
+            "type": "string",
+            "description": "`https://zipviz.ai/approve/` followed by `user_code`. Give this to the owner."
+          },
+          "expires_at_ms": {
+            "type": "integer",
+            "description": "When the pending signup expires (Unix ms)."
+          },
+          "poll_interval_ms": {
+            "type": "integer",
+            "const": 5000,
+            "description": "Poll `GET /v1/signup/{signup_id}` no faster than this."
+          }
+        }
+      },
+      "SignupStatus": {
+        "oneOf": [
+          {
+            "title": "Pending",
+            "type": "object",
+            "required": [
+              "schema_version",
+              "signup_id",
+              "state",
+              "proposed_domain",
+              "expires_at_ms",
+              "poll_interval_ms"
+            ],
+            "properties": {
+              "schema_version": {
+                "type": "string",
+                "const": "1.0"
+              },
+              "signup_id": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "const": "pending"
+              },
+              "proposed_domain": {
+                "type": "string"
+              },
+              "expires_at_ms": {
+                "type": "integer"
+              },
+              "poll_interval_ms": {
+                "type": "integer",
+                "const": 5000
+              }
+            }
+          },
+          {
+            "title": "Live",
+            "type": "object",
+            "required": [
+              "schema_version",
+              "signup_id",
+              "state",
+              "domain",
+              "incarnation",
+              "subject_agent_id",
+              "public_key",
+              "live_at_ms"
+            ],
+            "properties": {
+              "schema_version": {
+                "type": "string",
+                "const": "1.0"
+              },
+              "signup_id": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "const": "live"
+              },
+              "domain": {
+                "type": "string",
+                "description": "The agent's registered .viz name. It can differ from the proposed one if the owner renamed it."
+              },
+              "incarnation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "subject_agent_id": {
+                "type": "string",
+                "pattern": "^sub1_[A-Za-z0-9_-]{43}$"
+              },
+              "public_key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "live_at_ms": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "title": "Expired",
+            "type": "object",
+            "required": [
+              "schema_version",
+              "signup_id",
+              "state",
+              "expires_at_ms"
+            ],
+            "properties": {
+              "schema_version": {
+                "type": "string",
+                "const": "1.0"
+              },
+              "signup_id": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "const": "expired"
+              },
+              "expires_at_ms": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "title": "Rejected or cancelled",
+            "type": "object",
+            "required": [
+              "schema_version",
+              "signup_id",
+              "state",
+              "decided_at_ms"
+            ],
+            "properties": {
+              "schema_version": {
+                "type": "string",
+                "const": "1.0"
+              },
+              "signup_id": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "rejected",
+                  "cancelled"
+                ]
+              },
+              "decided_at_ms": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      },
+      "SignupCancelRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Signed by the same key as the signup's proof. The signed bytes are the UTF-8 string `ZipViz signup-cancel v1`, one zero byte, then the RFC 8785 canonical JSON of this object without `signature`. `issued_at_ms` must be within 5 minutes of the server clock, and each `nonce` works once.",
+        "required": [
+          "schema_version",
+          "type",
+          "signup_id",
+          "audience",
+          "nonce",
+          "issued_at_ms",
+          "signature"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0"
+          },
+          "type": {
+            "type": "string",
+            "const": "zipviz.signup.cancel"
+          },
+          "signup_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "description": "Must equal the `{signup_id}` in the path."
+          },
+          "audience": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253,
+            "description": "`api.zipviz.ai`."
+          },
+          "nonce": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "issued_at_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "signature": {
+            "$ref": "#/components/schemas/SignupSignature"
+          }
+        }
+      },
+      "SignupAvailability": {
+        "oneOf": [
+          {
+            "title": "Valid",
+            "type": "object",
+            "required": [
+              "name",
+              "valid",
+              "code",
+              "example"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "valid": {
+                "type": "boolean",
+                "const": true
+              },
+              "code": {
+                "type": "null"
+              },
+              "example": {
+                "type": "string",
+                "description": "The shape of the final name, for example `acme-NNNN.z.viz`."
+              }
+            }
+          },
+          {
+            "title": "Not valid",
+            "type": "object",
+            "required": [
+              "valid",
+              "code"
+            ],
+            "properties": {
+              "valid": {
+                "type": "boolean",
+                "const": false
+              },
+              "code": {
+                "type": "string",
+                "enum": [
+                  "E_NAME_FORMAT",
+                  "E_NAME_RESERVED"
+                ]
+              }
+            }
+          }
+        ]
+      }
     }
   }
 }
