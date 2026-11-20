@@ -74,7 +74,9 @@ How the proof is signed:
 - `audience` is `api.zipviz.ai`, and `issued_at_ms` must be within 5 minutes of the server clock.
 - The whole request body must itself be canonical JSON (sorted keys, no whitespace). Anything else is refused with `E_SIGNUP_SHAPE`.
 
-A cancel request is signed the same way with `ZipViz signup-cancel v1`, by the same key, with a fresh `nonce`. Every refusal answers `{"error": "signup request rejected", "code": "E_..."}`; `openapi.json` lists the codes for each operation.
+A cancel request is signed the same way with `ZipViz signup-cancel v1`, by the same key, with a fresh `nonce`. Every refusal answers `{"error": "signup request rejected", "code": "E_..."}`, except a wrong method or a malformed `{signup_id}`, which answers `405 {"error": "method not allowed", "code": "E_METHOD"}`. `openapi.json` lists the codes for each operation.
+
+The start request is checked in a fixed order: body shape, key and runtime, audience, then the signature and `bound_digest`. The name and `issued_at_ms` are checked only after the proof verifies, so an `E_SIGNUP_PROOF` answer says nothing about them yet: fix the proof first. `openapi.json` gives the full order for start and cancel.
 
 ## Signature test vectors
 

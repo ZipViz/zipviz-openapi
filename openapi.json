@@ -471,7 +471,7 @@
     "/v1/signup/start": {
       "post": {
         "summary": "Start an agent signup",
-        "description": "An agent asks for a .viz name for its own key. The signup stays pending until the owner approves it at `approval_url`; poll `GET /v1/signup/{signup_id}` to see the result. The body must be RFC 8785 canonical JSON, exactly: sorted keys, no whitespace, no duplicate members. Any other encoding of the same object is refused with `E_SIGNUP_SHAPE`. At most 4,096 bytes. Sending the same request again (same proof and body) returns the same receipt with 200.",
+        "description": "An agent asks for a .viz name for its own key. The signup stays pending until the owner approves it at `approval_url`; poll `GET /v1/signup/{signup_id}` to see the result. The body must be RFC 8785 canonical JSON, exactly: sorted keys, no whitespace, no duplicate members. Any other encoding of the same object is refused with `E_SIGNUP_SHAPE`. At most 4,096 bytes. Sending the same request again (same proof and body) returns the same receipt with 200. Checks run in this order, and the first failure is the answer: rate limit (`429 E_RATE_LIMITED`); body size and canonical shape (`413`/`400 E_SIGNUP_SHAPE`); key and runtime (`400 E_KEY_INVALID`, `E_RUNTIME`); audience (`401 E_SIGNUP_AUD`); signature and `bound_digest` (`403 E_SIGNUP_PROOF`); an existing signup with the same `signup_id` (`200` replay, or `409 E_SIGNUP_ID_CONFLICT`); freshness (`401 E_STALE`); the name (`400 E_NAME_FORMAT`, `409 E_NAME_RESERVED`); the introduction (`422 E_INTRO_*`); then the signup itself. So a request with a bad proof answers `E_SIGNUP_PROOF` even if its name or clock is also wrong: fix the proof first, because name and freshness are checked only after it verifies.",
         "requestBody": {
           "required": true,
           "content": {
@@ -590,6 +590,16 @@
                 }
               }
             }
+          },
+          "405": {
+            "description": "Method not allowed: this path answers `POST` only. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupMethodError"
+                }
+              }
+            }
           }
         }
       }
@@ -643,6 +653,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not allowed: this path answers `GET` only. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupMethodError"
                 }
               }
             }
@@ -713,6 +733,16 @@
                 }
               }
             }
+          },
+          "405": {
+            "description": "Method not allowed: this path answers `GET` only, and `{signup_id}` must be a lowercase UUIDv4. Any other form of the id is answered with 405, not 404. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupMethodError"
+                }
+              }
+            }
           }
         }
       }
@@ -720,7 +750,7 @@
     "/v1/signup/{signup_id}/cancel": {
       "post": {
         "summary": "Cancel a pending signup",
-        "description": "The agent withdraws its own pending signup. The body must be RFC 8785 canonical JSON, exactly: sorted keys, no whitespace, no duplicate members. Any other encoding of the same object is refused with `E_SIGNUP_SHAPE`. At most 4,096 bytes.",
+        "description": "The agent withdraws its own pending signup. The body must be RFC 8785 canonical JSON, exactly: sorted keys, no whitespace, no duplicate members. Any other encoding of the same object is refused with `E_SIGNUP_SHAPE`. At most 4,096 bytes. Checks run in this order: rate limit; body shape (`400 E_SIGNUP_SHAPE`), including a body `signup_id` that differs from the path; audience (`401 E_SIGNUP_AUD`), checked before the signup is looked up; an unknown signup (`404 E_SIGNUP_NOT_FOUND`); signature (`403 E_SIGNUP_PROOF`); freshness (`401 E_STALE`); a reused `nonce` (`409 E_REPLAY`); a signup that is no longer pending (`409 E_SIGNUP_FINAL`).",
         "parameters": [
           {
             "name": "signup_id",
@@ -846,6 +876,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SignupError"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not allowed: this path answers `POST` only, and `{signup_id}` must be a lowercase UUIDv4. The body is `{\"error\": \"method not allowed\", \"code\": \"E_METHOD\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupMethodError"
                 }
               }
             }
@@ -1283,6 +1323,24 @@
             }
           }
         ]
+      },
+      "SignupMethodError": {
+        "type": "object",
+        "required": [
+          "error",
+          "code"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "const": "method not allowed"
+          },
+          "code": {
+            "type": "string",
+            "const": "E_METHOD"
+          }
+        },
+        "description": "The answer to a method the path does not support, or to a `{signup_id}` that is not a lowercase UUIDv4. Its `error` text differs from other signup refusals."
       }
     }
   }

@@ -4,7 +4,7 @@ All notable changes to this specification are listed here.
 
 ## Unreleased
 
-- Add agent signup: `GET /v1/signup/availability`, `POST /v1/signup/start`, `GET /v1/signup/{signup_id}` and `POST /v1/signup/{signup_id}/cancel`, with the signed proof format, the response shapes and the error codes.
+- Add agent signup: `GET /v1/signup/availability`, `POST /v1/signup/start`, `GET /v1/signup/{signup_id}` and `POST /v1/signup/{signup_id}/cancel`, with the signed proof format, the response shapes, the error codes (including `405 E_METHOD`) and the order in which requests are checked.
 - Add v1 signature test vectors (`test-vectors/verify-v1.json`) and an offline checker (`test-vectors/check.mjs`) with a CI job.
 
 ## 1.0.0
