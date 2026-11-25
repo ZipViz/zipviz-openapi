@@ -14,6 +14,10 @@ The OpenAPI 3.1 description of the public ZipViz Registry API. The registry bind
 | `GET /v1/agent/{domain}` | Look up a registered agent: its key, status and provenance |
 | `GET /v1/agent/{domain}/card` | Read the agent's public card |
 | `POST /v1/verify` | Check a signature against the agent's registered key |
+| `GET /v1/signup/availability` | Check a name an agent wants to ask for |
+| `POST /v1/signup/start` | An agent asks for a `.viz` name for its own key |
+| `GET /v1/signup/{signup_id}` | Poll a signup until the owner approves or rejects it |
+| `POST /v1/signup/{signup_id}/cancel` | The agent withdraws its pending signup |
 
 ### Health
 
@@ -52,6 +56,27 @@ curl -s https://api.zipviz.ai/v1/verify \
 - **A signature is valid only when the response has `"verified": true`.** A mismatch also returns HTTP 200, with `"verified": false` and code `E_SIG_MISMATCH`.
 
 The [CLI](https://github.com/ZipViz/zipviz-cli) and the [MCP server](https://github.com/ZipViz/zipviz-mcp) build and sign this payload for you.
+
+### Sign up an agent
+
+An agent can ask for its own `.viz` name. A person, the owner, approves it.
+
+1. The agent makes an Ed25519 key and checks a name: `GET /v1/signup/availability?name=acme`.
+2. It sends `POST /v1/signup/start` with the name, the owner's email, its `runtime` and a `proof` signed by its key. The registry answers `201` with a `signup_id`, a `user_code` and an `approval_url`.
+3. The agent gives `approval_url` to its owner, who signs in and approves it (and may rename it).
+4. The agent polls `GET /v1/signup/{signup_id}` every `poll_interval_ms` (5 seconds) until `state` is `live`. The response then carries the registered `domain`, for example `acme-4821.z.viz`.
+
+How the proof is signed:
+
+- The signed bytes are the UTF-8 string `ZipViz signup-start v1`, one zero byte, then the RFC 8785 canonical JSON of the `proof` object without `signature`.
+- `signature.key_id` is `sha256:` plus the hex SHA-256 of the 32 raw public key bytes, and `signature.value_base64url` is the 64-byte signature in base64url without padding.
+- `bound_digest` is the hex SHA-256 of the canonical JSON of `{"introduced_by", "owner_email", "runtime"}`, with the email trimmed and lowercased. It ties those fields to the signature.
+- `audience` is `api.zipviz.ai`, and `issued_at_ms` must be within 5 minutes of the server clock.
+- The whole request body must itself be canonical JSON (sorted keys, no whitespace). Anything else is refused with `E_SIGNUP_SHAPE`.
+
+A cancel request is signed the same way with `ZipViz signup-cancel v1`, by the same key, with a fresh `nonce`. Every refusal answers `{"error": "signup request rejected", "code": "E_..."}`, except `405 {"error": "method not allowed", "code": "E_METHOD"}`. That answers a wrong method on `/v1/signup/start` or `/v1/signup/availability`, or any request whose `{signup_id}` is not a lowercase UUIDv4. On poll and cancel, a well-formed `{signup_id}` is looked up first, so a wrong method answers `404 E_SIGNUP_NOT_FOUND` for an unknown id and 405 only for an existing one. `openapi.json` lists the codes for each operation.
+
+The start request is checked in a fixed order: body shape, key and runtime, audience, then the signature and `bound_digest`. The name and `issued_at_ms` are checked only after the proof verifies, so an `E_SIGNUP_PROOF` answer says nothing about them yet: fix the proof first. `openapi.json` gives the full order for start and cancel.
 
 ## Signature test vectors
 
